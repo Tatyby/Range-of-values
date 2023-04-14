@@ -3,19 +3,20 @@ package org.example;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.*;
 
 public class Main {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
         String[] texts = new String[25];
+
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
         }
-
-        long startTs = System.currentTimeMillis(); // start time
-        List<Thread> threads = new ArrayList<>(); //список потоков
+        List<Future> futureList = new ArrayList<>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(texts.length);//создаем пул потоков
         for (String text : texts) {
-            Thread thread = new Thread(() -> {
+            Callable<Integer> task = () -> { //создали задачу на исполнение
                 int maxSize = 0;
                 for (int i = 0; i < text.length(); i++) {
                     for (int j = 0; j < text.length(); j++) {
@@ -35,16 +36,21 @@ public class Main {
                     }
                 }
                 System.out.println(text.substring(0, 100) + " -> " + maxSize);
-            });
-            threads.add(thread);
-            thread.start();
-        }
-        for (Thread thread : threads) {
-            thread.join(); // зависаем, ждём когда поток объект которого лежит в thread завершится
-        }
-        long endTs = System.currentTimeMillis(); // end time
+                return maxSize;
+            };
+            Future<Integer> future = threadPool.submit(task);
+            futureList.add(future); //добавляем в список FUTURE задачи на исполнение
 
-        System.out.println("Time: " + (endTs - startTs) + "ms");
+        }
+        int maxRange = 0;
+        for (Future future : futureList) {
+            if (maxRange < (Integer) future.get()) {
+                maxRange = (Integer) future.get();
+            }
+
+        }
+        System.out.println(maxRange);
+        threadPool.shutdown();
     }
 
     public static String generateText(String letters, int length) {
